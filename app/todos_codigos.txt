@@ -1,0 +1,1824 @@
+===== ./animes.tsx =====
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+  FlatList,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { api } from '../services/api';
+
+export default function Animes() {
+  const [animes, setAnimes] = useState([]);
+
+  useEffect(() => {
+    carregarAnimes();
+  }, []);
+
+  async function carregarAnimes() {
+    const response = await api.get('/anime');
+    setAnimes(response.data.data);
+  }
+
+  return (
+    <FlatList
+      data={animes}
+      keyExtractor={(item: any) => item.mal_id.toString()}
+      renderItem={({ item }: any) => (
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() =>
+            router.push({
+              pathname: '/detalhe',
+              params: { id: item.mal_id },
+            })
+          }
+        >
+          <Image
+            source={{
+              uri: item.images.jpg.image_url,
+            }}
+            style={styles.image}
+          />
+
+          <View style={styles.info}>
+            <Text style={styles.title}>{item.title}</Text>
+            <Text>Nota: {item.score}</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    padding: 10,
+    margin: 10,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    elevation: 2,
+  },
+  image: {
+    width: 100,
+    height: 140,
+    borderRadius: 8,
+  },
+  info: {
+    flex: 1,
+    marginLeft: 10,
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+});
+
+
+===== ./busca.tsx =====
+import { router } from 'expo-router';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { api } from '../services/api';
+
+export default function Busca() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [animes, setAnimes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+
+  async function buscarAnimes() {
+    if (!searchQuery.trim()) {
+      setModalMessage('Por favor, digite o nome de um anime para buscar.');
+      setModalVisible(true);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setHasSearched(true);
+      
+      const response = await api.get(`/anime?q=${encodeURIComponent(searchQuery)}&limit=20`);
+      const resultados = response.data.data || [];
+      setAnimes(resultados);
+      
+      if (resultados.length === 0) {
+        setModalMessage(`Nenhum anime encontrado para "${searchQuery}"`);
+        setModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar animes:', error);
+      setModalMessage('Erro ao buscar animes. Tente novamente.');
+      setModalVisible(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function limparBusca() {
+    setSearchQuery('');
+    setAnimes([]);
+    setHasSearched(false);
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Digite o nome do anime..."
+          placeholderTextColor="#999"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onSubmitEditing={buscarAnimes}
+          returnKeyType="search"
+          autoFocus={false}
+        />
+        <TouchableOpacity
+          style={styles.searchButton}
+          onPress={buscarAnimes}
+          disabled={loading}
+          activeOpacity={0.7}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.searchButtonText}>Buscar</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {hasSearched && animes.length > 0 && (
+        <TouchableOpacity
+          style={styles.clearButton}
+          onPress={limparBusca}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.clearButtonText}>Limpar Resultados</Text>
+        </TouchableOpacity>
+      )}
+
+      {loading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={styles.loadingText}>Buscando animes...</Text>
+        </View>
+      )}
+
+      {!loading && hasSearched && animes.length > 0 && (
+        <>
+          <View style={styles.resultsHeader}>
+            <Text style={styles.resultsCount}>
+              {animes.length} anime(s) encontrado(s)
+            </Text>
+          </View>
+
+          <FlatList
+            data={animes}
+            keyExtractor={(item: any) => item.mal_id.toString()}
+            renderItem={({ item }: any) => (
+              <TouchableOpacity
+                style={styles.card}
+                onPress={() =>
+                  router.push({
+                    pathname: '/detalhe',
+                    params: { id: item.mal_id },
+                  })
+                }
+                activeOpacity={0.7}
+              >
+                <Image
+                  source={{
+                    uri: item.images?.jpg?.image_url || 'https://via.placeholder.com/100x140',
+                  }}
+                  style={styles.image}
+                />
+                <View style={styles.info}>
+                  <Text style={styles.title} numberOfLines={2}>
+                    {item.title}
+                  </Text>
+                  
+                  {item.title_english && item.title_english !== item.title && (
+                    <Text style={styles.titleEnglish} numberOfLines={1}>
+                      {item.title_english}
+                    </Text>
+                  )}
+                  
+                  <View style={styles.detailsRow}>
+                    {item.score && (
+                      <View style={styles.scoreContainer}>
+                        <Text style={styles.scoreIcon}>⭐</Text>
+                        <Text style={styles.score}>{item.score}</Text>
+                      </View>
+                    )}
+                    
+                    {item.type && (
+                      <Text style={styles.type}>{item.type}</Text>
+                    )}
+                    
+                    {item.episodes && (
+                      <Text style={styles.episodes}>{item.episodes} ep</Text>
+                    )}
+                  </View>
+                  
+                  {item.synopsis && (
+                    <Text style={styles.synopsis} numberOfLines={2}>
+                      {item.synopsis.replace(/<[^>]*>/g, '')}
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+        </>
+      )}
+
+      {!hasSearched && !loading && (
+        <View style={styles.initialContainer}>
+          <Text style={styles.initialTitle}>Busque seu anime favorito</Text>
+          <Text style={styles.initialSubtitle}>
+            Digite o nome do anime no campo acima{'\n'}
+            e descubra todas as informações sobre ele
+          </Text>
+          <View style={styles.initialTips}>
+            <View style={styles.tipItem}>
+              <Text style={styles.tipText}>Busque pelo nome completo ou parcial</Text>
+            </View>
+            <View style={styles.tipItem}>
+              <Text style={styles.tipText}>Encontre animes de todas as épocas</Text>
+            </View>
+            <View style={styles.tipItem}>
+              <Text style={styles.tipText}>Resultados em tempo real</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Aviso</Text>
+            </View>
+
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          Desenvolvido por Jamily Grazielle e Marcio Sá
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f7fa',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  searchInput: {
+    flex: 1,
+    height: 46,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    fontSize: 16,
+    color: '#1a1a2e',
+    marginRight: 10,
+  },
+  searchButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  searchButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  clearButton: {
+    backgroundColor: '#f0f0f0',
+    marginHorizontal: 16,
+    marginVertical: 8,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  clearButtonText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  resultsHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 15,
+    paddingBottom: 8,
+  },
+  resultsCount: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  listContent: {
+    padding: 16,
+    paddingTop: 8,
+  },
+  card: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  image: {
+    width: 80,
+    height: 112,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+  },
+  info: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: 'flex-start',
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1a1a2e',
+    marginBottom: 2,
+  },
+  titleEnglish: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 4,
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginBottom: 4,
+  },
+  scoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  scoreIcon: {
+    fontSize: 12,
+    marginRight: 2,
+  },
+  score: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#f59e0b',
+  },
+  type: {
+    fontSize: 12,
+    color: '#666',
+    marginRight: 12,
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  episodes: {
+    fontSize: 12,
+    color: '#666',
+  },
+  synopsis: {
+    fontSize: 12,
+    color: '#888',
+    lineHeight: 16,
+    marginTop: 4,
+  },
+  initialContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  initialTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1a1a2e',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  initialSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 30,
+  },
+  initialTips: {
+    width: '100%',
+    maxWidth: 300,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  tipItem: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  tipText: {
+    fontSize: 14,
+    color: '#444',
+    textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    width: '80%',
+    maxWidth: 340,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalHeader: {
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1a1a2e',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#444',
+    lineHeight: 24,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalButton: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  footer: {
+    paddingVertical: 15,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  footerText: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#999',
+  },
+});
+
+
+===== ./detalhe.tsx =====
+import { useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { api } from '../services/api';
+
+export default function Detalhe() {
+  const { id, from } = useLocalSearchParams();
+  const [anime, setAnime] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Verifica se veio da página de sorteio
+  const veioDoSorteio = from === 'sorteio';
+
+  useEffect(() => {
+    carregarDetalhes();
+  }, []);
+
+  async function carregarDetalhes() {
+    try {
+      setLoading(true);
+      const response = await api.get(`/anime/${id}`);
+      setAnime(response.data.data);
+    } catch (error) {
+      console.error('Erro ao carregar detalhes:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function sortearNovamente() {
+    try {
+      setLoading(true);
+      const response = await api.get('/random/anime');
+      setAnime(response.data.data);
+    } catch (error) {
+      console.error('Erro ao sortear novamente:', error);
+      alert('Erro ao sortear novo anime. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#e74c3c" />
+        <Text style={styles.loadingText}>Carregando detalhes...</Text>
+      </View>
+    );
+  }
+
+  if (!anime) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>Anime não encontrado</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Image
+        source={{
+          uri: anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url,
+        }}
+        style={styles.image}
+        resizeMode="cover"
+      />
+
+      <Text style={styles.title}>{anime.title}</Text>
+
+      {anime.title_japanese && (
+        <Text style={styles.titleJapanese}>{anime.title_japanese}</Text>
+      )}
+
+      <View style={styles.infoContainer}>
+        {anime.score && (
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Nota</Text>
+            <Text style={styles.infoValue}>{anime.score}</Text>
+          </View>
+        )}
+
+        {anime.episodes && (
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Episódios</Text>
+            <Text style={styles.infoValue}>{anime.episodes}</Text>
+          </View>
+        )}
+
+        {anime.status && (
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Status</Text>
+            <Text style={styles.infoValue}>{anime.status}</Text>
+          </View>
+        )}
+
+        {anime.type && (
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Tipo</Text>
+            <Text style={styles.infoValue}>{anime.type}</Text>
+          </View>
+        )}
+
+        {anime.rating && (
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Classificação</Text>
+            <Text style={styles.infoValue}>{anime.rating}</Text>
+          </View>
+        )}
+
+        {anime.duration && (
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Duração</Text>
+            <Text style={styles.infoValue}>{anime.duration}</Text>
+          </View>
+        )}
+
+        {anime.aired?.string && (
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Exibição</Text>
+            <Text style={styles.infoValue}>{anime.aired.string}</Text>
+          </View>
+        )}
+      </View>
+
+      {anime.genres && anime.genres.length > 0 && (
+        <View style={styles.genresContainer}>
+          <Text style={styles.genresTitle}>Gêneros</Text>
+          <View style={styles.genresList}>
+            {anime.genres.map((genre: any) => (
+              <View key={genre.mal_id} style={styles.genreTag}>
+                <Text style={styles.genreText}>{genre.name}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {anime.synopsis && (
+        <View style={styles.synopsisContainer}>
+          <Text style={styles.synopsisTitle}>Sinopse</Text>
+          <Text style={styles.synopsisText}>{anime.synopsis}</Text>
+        </View>
+      )}
+
+      {anime.background && (
+        <View style={styles.backgroundContainer}>
+          <Text style={styles.backgroundTitle}>Informações Adicionais</Text>
+          <Text style={styles.backgroundText}>{anime.background}</Text>
+        </View>
+      )}
+
+      {/* Botão "Sortear Novamente" - só aparece se veio da página de sorteio */}
+      {veioDoSorteio && (
+        <TouchableOpacity
+          style={styles.sortearNovamenteButton}
+          onPress={sortearNovamente}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.sortearNovamenteText}>Sortear Novamente</Text>
+        </TouchableOpacity>
+      )}
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          Desenvolvido por Jamily Grazielle e Marcio Sá
+        </Text>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  content: {
+    paddingBottom: 30,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorText: {
+    fontSize: 18,
+    color: '#e74c3c',
+  },
+  image: {
+    width: '100%',
+    height: 400,
+    backgroundColor: '#ddd',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1a1a2e',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 5,
+  },
+  titleJapanese: {
+    fontSize: 18,
+    color: '#666',
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+    fontStyle: 'italic',
+  },
+  infoContainer: {
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '600',
+  },
+  infoValue: {
+    fontSize: 14,
+    color: '#1a1a2e',
+    fontWeight: '500',
+  },
+  genresContainer: {
+    marginHorizontal: 20,
+    marginBottom: 15,
+  },
+  genresTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1a1a2e',
+    marginBottom: 10,
+  },
+  genresList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  genreTag: {
+    backgroundColor: '#e74c3c',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  genreText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  synopsisContainer: {
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  synopsisTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1a1a2e',
+    marginBottom: 10,
+  },
+  synopsisText: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: '#333',
+    textAlign: 'justify',
+  },
+  backgroundContainer: {
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  backgroundTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1a1a2e',
+    marginBottom: 10,
+  },
+  backgroundText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#555',
+    textAlign: 'justify',
+  },
+  sortearNovamenteButton: {
+    backgroundColor: '#e74c3c',
+    marginHorizontal: 20,
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 10,
+    marginBottom: 10,
+    elevation: 3,
+    shadowColor: '#e74c3c',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  sortearNovamenteText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  voltarButton: {
+    marginHorizontal: 20,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  voltarText: {
+    color: '#666',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  footer: {
+    marginTop: 20,
+    paddingTop: 15,
+    paddingBottom: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    marginHorizontal: 20,
+  },
+  footerText: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#999',
+  },
+});
+
+
+===== ./index.tsx =====
+import { router } from 'expo-router';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+export default function Home() {
+  return (
+    <View style={styles.container}>
+      <Image
+        source={require('../assets/images/logo.jpg')}
+        style={styles.logoImage}
+        resizeMode="contain"
+      />
+
+      <Text style={styles.logoText}>Anime Explorer</Text>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => router.push('/animes')}
+      >
+        <Text style={styles.buttonText}>Listar Animes</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.button, styles.buttonBusca]}
+        onPress={() => router.push('/busca')}
+      >
+        <Text style={styles.buttonText}>Buscar Anime</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.button, styles.buttonSorteio]}
+        onPress={() => router.push('/sorteio')}
+      >
+        <Text style={styles.buttonText}>Sortear Anime</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.button, styles.buttonSobre]}
+        onPress={() => router.push('/sobre')}
+      >
+        <Text style={styles.buttonText}>Sobre</Text>
+      </TouchableOpacity>
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          Desenvolvido por Jamily Grazielle e Marcio Sá
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#1a1a2e',
+  },
+  logoImage: {
+    width: 150,
+    height: 150,
+    marginBottom: 10,
+    borderRadius: 20,
+  },
+  logoText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 40,
+    color: '#fff',
+  },
+  button: {
+    backgroundColor: '#2563eb',
+    width: 220,
+    padding: 15,
+    borderRadius: 10,
+    marginVertical: 8,
+    elevation: 2,
+  },
+  buttonBusca: {
+    backgroundColor: '#8b5cf6',
+  },
+  buttonSorteio: {
+    backgroundColor: '#e74c3c',
+  },
+  buttonSobre: {
+    backgroundColor: '#2d3436',
+  },
+  buttonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 30,
+    alignItems: 'center',
+  },
+  footerText: {
+    color: '#666',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+});
+
+
+===== ./modal.tsx =====
+import { Link } from 'expo-router';
+import { StyleSheet } from 'react-native';
+
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+
+export default function ModalScreen() {
+  return (
+    <ThemedView style={styles.container}>
+      <ThemedText type="title">Isso é um modal</ThemedText>
+      <Link href="/" dismissTo style={styles.link}>
+        <ThemedText type="link">Ir para página inicial</ThemedText>
+      </Link>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  link: {
+    marginTop: 15,
+    paddingVertical: 15,
+  },
+});
+
+
+
+===== ./sobre.tsx =====
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { router } from 'expo-router';
+import React from 'react';
+import {
+  Image,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+export default function Sobre() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  const colors = {
+    background: isDark ? '#0f172a' : '#f5f7fa',
+    text: isDark ? '#f1f5f9' : '#1a202c',
+    subtext: isDark ? '#94a3b8' : '#4a5568',
+    cardBlue: isDark ? '#172554' : '#eff6ff',
+    cardPurple: isDark ? '#1e1b4b' : '#f5f3ff',
+    cardGreen: isDark ? '#064e3b' : '#ecfdf5',
+    cardGray: isDark ? '#1e293b' : '#f9fafb',
+    tagBg: isDark ? '#1e293b' : '#e0e7ff',
+    tagText: isDark ? '#94a3b8' : '#4338ca',
+    linkBg: isDark ? '#0f172a' : '#ffffff',
+    linkBorder: isDark ? '#334155' : '#e5e7eb',
+    buttonBg: isDark ? '#2563eb' : '#3b82f6',
+  };
+
+  return (
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <Image
+            source={require('../assets/images/logo.jpg')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+          <Text style={[styles.title, { color: colors.text }]}>Anime Explorer</Text>
+          <Text style={[styles.version, { color: colors.subtext }]}>Versao 1.0.0</Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: colors.cardBlue, borderColor: isDark ? '#1e3a5f' : '#bfdbfe' }]}>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Sobre a API</Text>
+          </View>
+          <Text style={[styles.cardText, { color: colors.subtext }]}>
+            Este aplicativo utiliza a <Text style={styles.highlight}>Jikan API</Text>, 
+            uma API publica e gratuita que fornece dados do MyAnimeList, 
+            um dos maiores bancos de dados de animes do mundo.
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: colors.cardPurple, borderColor: isDark ? '#312e81' : '#ddd6fe' }]}>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Funcionalidades</Text>
+          </View>
+          <View style={styles.featureList}>
+            <View style={styles.featureItem}>
+              <Text style={styles.featureCheck}>[x]</Text>
+              <Text style={[styles.cardText, { color: colors.subtext }]}>Listagem de animes com <Text style={styles.bold}>FlatList</Text></Text>
+            </View>
+            <View style={styles.featureItem}>
+              <Text style={styles.featureCheck}>[x]</Text>
+              <Text style={[styles.cardText, { color: colors.subtext }]}>Detalhes completos de cada anime</Text>
+            </View>
+            <View style={styles.featureItem}>
+              <Text style={styles.featureCheck}>[x]</Text>
+              <Text style={[styles.cardText, { color: colors.subtext }]}>Sorteio aleatorio de animes</Text>
+            </View>
+            <View style={styles.featureItem}>
+              <Text style={styles.featureCheck}>[x]</Text>
+              <Text style={[styles.cardText, { color: colors.subtext }]}>Suporte a temas Claro/Escuro</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: colors.cardGreen, borderColor: isDark ? '#065f46' : '#a7f3d0' }]}>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Tecnologias</Text>
+          </View>
+          <View style={styles.techList}>
+            <View style={[styles.techTag, { backgroundColor: colors.tagBg }]}>
+              <Text style={[styles.techText, { color: colors.tagText }]}>React Native</Text>
+            </View>
+            <View style={[styles.techTag, { backgroundColor: colors.tagBg }]}>
+              <Text style={[styles.techText, { color: colors.tagText }]}>Expo</Text>
+            </View>
+            <View style={[styles.techTag, { backgroundColor: colors.tagBg }]}>
+              <Text style={[styles.techText, { color: colors.tagText }]}>TypeScript</Text>
+            </View>
+            <View style={[styles.techTag, { backgroundColor: colors.tagBg }]}>
+              <Text style={[styles.techText, { color: colors.tagText }]}>Axios</Text>
+            </View>
+            <View style={[styles.techTag, { backgroundColor: colors.tagBg }]}>
+              <Text style={[styles.techText, { color: colors.tagText }]}>Expo Router</Text>
+            </View>
+            <View style={[styles.techTag, { backgroundColor: colors.tagBg }]}>
+              <Text style={[styles.techText, { color: colors.tagText }]}>Jikan API</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: colors.cardGray, borderColor: colors.linkBorder }]}>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Links Uteis</Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={[styles.linkItem, { backgroundColor: colors.linkBg, borderColor: colors.linkBorder }]} 
+            onPress={() => Linking.openURL('https://jikan.moe')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.linkContent}>
+              <Text style={styles.linkIcon}>Docs</Text>
+              <View>
+                <Text style={[styles.linkTitle, { color: colors.text }]}>Jikan API</Text>
+                <Text style={[styles.linkSubtitle, { color: colors.subtext }]}>Documentacao Oficial</Text>
+              </View>
+            </View>
+            <Text style={[styles.linkArrow, { color: isDark ? '#64748b' : '#9ca3af' }]}>→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.linkItem, { backgroundColor: colors.linkBg, borderColor: colors.linkBorder }]} 
+            onPress={() => Linking.openURL('https://myanimelist.net')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.linkContent}>
+              <Text style={styles.linkIcon}>MAL</Text>
+              <View>
+                <Text style={[styles.linkTitle, { color: colors.text }]}>MyAnimeList</Text>
+                <Text style={[styles.linkSubtitle, { color: colors.subtext }]}>Fonte dos dados</Text>
+              </View>
+            </View>
+            <Text style={[styles.linkArrow, { color: isDark ? '#64748b' : '#9ca3af' }]}>→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.linkItem, { backgroundColor: colors.linkBg, borderColor: colors.linkBorder }]} 
+            onPress={() => Linking.openURL('https://github.com/jikan-me/jikan')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.linkContent}>
+              <Text style={styles.linkIcon}>Git</Text>
+              <View>
+                <Text style={[styles.linkTitle, { color: colors.text }]}>GitHub</Text>
+                <Text style={[styles.linkSubtitle, { color: colors.subtext }]}>Codigo fonte da API</Text>
+              </View>
+            </View>
+            <Text style={[styles.linkArrow, { color: isDark ? '#64748b' : '#9ca3af' }]}>→</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.footer, { borderTopColor: isDark ? '#1e293b' : '#e5e7eb' }]}>
+          <Text style={[styles.footerText, { color: colors.subtext }]}>
+            Desenvolvido para a disciplina de Programacao para Dispositivos Moveis
+          </Text>
+          <Text style={[styles.footerSubtext, { color: isDark ? '#64748b' : '#9ca3af' }]}>
+            Desenvolvido por Jamily Grazielle e Marcio Sa
+          </Text>
+        </View>
+
+        <TouchableOpacity 
+          style={[styles.backButton, { backgroundColor: colors.buttonBg }]} 
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.backButtonText}>Voltar</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    padding: 24,
+    paddingBottom: 40,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  logoImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 20,
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  version: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  card: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  cardText: {
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  highlight: {
+    fontWeight: 'bold',
+    color: '#2563eb',
+  },
+  bold: {
+    fontWeight: 'bold',
+  },
+  featureList: {
+    gap: 8,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  featureCheck: {
+    fontSize: 14,
+    color: '#2563eb',
+    fontWeight: 'bold',
+  },
+  techList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  techTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  techText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  linkItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  linkContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  linkIcon: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#2563eb',
+  },
+  linkTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  linkSubtitle: {
+    fontSize: 12,
+  },
+  linkArrow: {
+    fontSize: 18,
+  },
+  footer: {
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+  },
+  footerText: {
+    textAlign: 'center',
+    fontSize: 13,
+  },
+  footerSubtext: {
+    textAlign: 'center',
+    fontSize: 11,
+    marginTop: 4,
+  },
+  backButton: {
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  backButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+});
+
+
+===== ./sorteio.tsx =====
+import { router } from 'expo-router';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { api } from '../services/api';
+
+const { width } = Dimensions.get('window');
+
+export default function Sorteio() {
+  const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  async function realizarSorteio() {
+    try {
+      setLoading(true);
+      setModalVisible(false);
+
+      const response = await api.get('/random/anime');
+
+      router.push({
+        pathname: '/detalhe',
+        params: {
+          id: String(response.data.data.mal_id),
+          from: 'sorteio', 
+        },
+      });
+    } catch (error) {
+      console.error('Erro no sorteio:', error);
+      setErrorMessage('Erro ao sortear anime. Tente novamente.');
+      setErrorModalVisible(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function abrirModal() {
+    setModalVisible(true);
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.content}>
+        <Text style={styles.title}>Anime Aleatório</Text>
+
+        <Text style={styles.subtitle}>
+          Clique no botão abaixo e deixe o destino decidir!
+        </Text>
+
+        <View style={styles.infoBox}>
+          <Text style={styles.infoText}>Sorteio completamente aleatório</Text>
+          <Text style={styles.infoText}>Pode vir qualquer gênero</Text>
+          <Text style={styles.infoText}>Inclui todos os tipos de anime</Text>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={abrirModal}
+          disabled={loading}
+          activeOpacity={0.7}
+        >
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color="#fff" size="small" />
+              <Text style={styles.buttonText}>Sorteando...</Text>
+            </View>
+          ) : (
+            <Text style={styles.buttonText}>Sortear Anime</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalEmoji}>!</Text>
+              <Text style={styles.modalTitle}>Atenção!</Text>
+            </View>
+
+            <Text style={styles.modalMessage}>
+              O sorteio pode trazer qualquer tipo de anime, de qualquer gênero ou classificação etária.
+            </Text>
+
+            <View style={styles.modalWarningBox}>
+              <Text style={styles.modalWarningText}>• Pode conter conteúdo adulto</Text>
+              <Text style={styles.modalWarningText}>• Qualquer gênero é possível</Text>
+              <Text style={styles.modalWarningText}>• Animes de todas as épocas</Text>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm]}
+                onPress={realizarSorteio}
+              >
+                <Text style={styles.modalButtonTextConfirm}>Estou ciente!</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={errorModalVisible}
+        onRequestClose={() => setErrorModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, styles.errorModalContainer]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, styles.errorTitle]}>Erro</Text>
+            </View>
+
+            <Text style={styles.errorMessage}>{errorMessage}</Text>
+
+            <TouchableOpacity
+              style={[styles.modalButton, styles.errorButton]}
+              onPress={() => setErrorModalVisible(false)}
+            >
+              <Text style={styles.modalButtonTextConfirm}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#1a1a2e',
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  title: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#a8a8b3',
+    textAlign: 'center',
+    marginBottom: 30,
+    paddingHorizontal: 20,
+  },
+  infoBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 40,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  infoText: {
+    color: '#c8c8d4',
+    fontSize: 15,
+    marginVertical: 5,
+    textAlign: 'center',
+  },
+  button: {
+    backgroundColor: '#e74c3c',
+    paddingVertical: 16,
+    paddingHorizontal: 40,
+    borderRadius: 30,
+    elevation: 3,
+    shadowColor: '#e74c3c',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    width: '100%',
+    maxWidth: 300,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    width: width * 0.85,
+    maxWidth: 400,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  errorModalContainer: {
+    borderWidth: 2,
+    borderColor: '#e74c3c',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalEmoji: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginRight: 12,
+    color: '#e74c3c',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1a1a2e',
+  },
+  errorTitle: {
+    color: '#e74c3c',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#444',
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  modalWarningBox: {
+    backgroundColor: '#fff3e0',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#ffcc80',
+  },
+  modalWarningText: {
+    fontSize: 14,
+    color: '#e65100',
+    marginVertical: 3,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: '#f0f0f0',
+  },
+  modalButtonConfirm: {
+    backgroundColor: '#e74c3c',
+  },
+  errorButton: {
+    backgroundColor: '#e74c3c',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
+  },
+  modalButtonTextConfirm: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: '#444',
+    lineHeight: 24,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+});
+
+
+===== ./_layout.tsx =====
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import 'react-native-reanimated';
+
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
+export default function RootLayout() {
+  const colorScheme = useColorScheme();
+
+  return (
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <Stack>
+        <Stack.Screen
+          name="index"
+          options={{
+            title: 'Anime Explorer',
+            headerStyle: {
+              backgroundColor: '#1a1a2e',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+            headerBackVisible: false, // Remove o botão de voltar da Home
+          }}
+        />
+
+        <Stack.Screen
+          name="animes"
+          options={{
+            title: 'Lista de Animes',
+            headerStyle: {
+              backgroundColor: '#1a1a2e',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+            headerBackTitle: 'Voltar', // Texto do botão de voltar
+            headerBackVisible: true, // Mostra o botão de voltar
+          }}
+        />
+
+        <Stack.Screen
+          name="busca"
+          options={{
+            title: 'Buscar Animes',
+            headerStyle: {
+              backgroundColor: '#1a1a2e',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+            headerBackTitle: 'Voltar',
+            headerBackVisible: true,
+          }}
+        />
+
+        <Stack.Screen
+          name="detalhe"
+          options={{
+            title: 'Detalhes do Anime',
+            headerStyle: {
+              backgroundColor: '#1a1a2e',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+            headerBackTitle: 'Voltar',
+            headerBackVisible: true,
+          }}
+        />
+
+        <Stack.Screen
+          name="sobre"
+          options={{
+            title: 'Sobre',
+            headerStyle: {
+              backgroundColor: '#1a1a2e',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+            headerBackTitle: 'Voltar',
+            headerBackVisible: true,
+          }}
+        />
+
+        <Stack.Screen
+          name="sorteio"
+          options={{
+            title: 'Sorteio Aleatório',
+            headerStyle: {
+              backgroundColor: '#1a1a2e',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+            headerBackTitle: 'Voltar',
+            headerBackVisible: true,
+          }}
+        />
+      </Stack>
+
+      <StatusBar style="auto" />
+    </ThemeProvider>
+  );
+}
+
+

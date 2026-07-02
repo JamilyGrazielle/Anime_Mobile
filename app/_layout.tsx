@@ -14,7 +14,7 @@ export default function RootLayout() {
         <Stack.Screen
           name="index"
           options={{
-            title: 'Anime Explorer',
+            title: 'Anime Mobile',
             headerStyle: {
               backgroundColor: '#1a1a2e',
             },
@@ -22,7 +22,7 @@ export default function RootLayout() {
             headerTitleStyle: {
               fontWeight: 'bold',
             },
-            headerBackVisible: false, // Remove o botão de voltar da Home
+            headerBackVisible: false, 
           }}
         />
 
@@ -37,8 +37,8 @@ export default function RootLayout() {
             headerTitleStyle: {
               fontWeight: 'bold',
             },
-            headerBackTitle: 'Voltar', // Texto do botão de voltar
-            headerBackVisible: true, // Mostra o botão de voltar
+            headerBackTitle: 'Voltar', 
+            headerBackVisible: true,
           }}
         />
 

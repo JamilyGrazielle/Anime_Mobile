@@ -39,7 +39,7 @@ export default function Sobre() {
             style={styles.logoImage}
             resizeMode="contain"
           />
-          <Text style={[styles.title, { color: colors.text }]}>Anime Explorer</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Anime Mobile</Text>
           <Text style={[styles.version, { color: colors.subtext }]}>Versao 1.0.0</Text>
         </View>
 

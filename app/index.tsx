@@ -10,7 +10,7 @@ export default function Home() {
         resizeMode="contain"
       />
 
-      <Text style={styles.logoText}>Anime Explorer</Text>
+      <Text style={styles.logoText}>Anime Mobile</Text>
 
       <TouchableOpacity
         style={styles.button}
